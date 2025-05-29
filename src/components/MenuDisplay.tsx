@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,25 +7,59 @@ import { MenuItem, MenuData } from "@/types/menu";
 const MenuDisplay = () => {
   const [searchParams] = useSearchParams();
   const [menuData, setMenuData] = useState<MenuData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const dataParam = searchParams.get('data');
-    if (dataParam) {
-      try {
-        const parsedData = JSON.parse(decodeURIComponent(dataParam));
-        setMenuData(parsedData);
-      } catch (error) {
-        console.error('Error parsing menu data:', error);
+    const loadMenuData = () => {
+      const menuId = searchParams.get('id');
+      const legacyData = searchParams.get('data'); // For backwards compatibility
+      
+      if (menuId) {
+        // Load from localStorage using menu ID
+        const savedData = localStorage.getItem(`menu_data_${menuId}`);
+        if (savedData) {
+          try {
+            const parsedData = JSON.parse(savedData);
+            setMenuData(parsedData);
+          } catch (error) {
+            console.error('Error parsing saved menu data:', error);
+          }
+        }
+      } else if (legacyData) {
+        // Fallback for old QR codes with embedded data
+        try {
+          const parsedData = JSON.parse(decodeURIComponent(legacyData));
+          setMenuData(parsedData);
+        } catch (error) {
+          console.error('Error parsing legacy menu data:', error);
+        }
       }
-    }
+      
+      setLoading(false);
+    };
+
+    loadMenuData();
   }, [searchParams]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+        <Card className="bg-white/10 backdrop-blur border-white/20">
+          <CardContent className="p-8 text-center">
+            <p className="text-white text-xl">Loading menu...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (!menuData) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
         <Card className="bg-white/10 backdrop-blur border-white/20">
           <CardContent className="p-8 text-center">
-            <p className="text-white text-xl">Loading menu...</p>
+            <p className="text-white text-xl">Menu not found</p>
+            <p className="text-gray-400 text-sm mt-2">The menu you're looking for doesn't exist or has been removed.</p>
           </CardContent>
         </Card>
       </div>

@@ -14,13 +14,32 @@ interface QRCodeGeneratorProps {
 const QRCodeGenerator = ({ menuItems }: QRCodeGeneratorProps) => {
   const [restaurantName, setRestaurantName] = useState("My Restaurant");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [menuId] = useState(() => {
+    // Get existing menu ID from localStorage or create a new one
+    let savedMenuId = localStorage.getItem('menuId');
+    if (!savedMenuId) {
+      savedMenuId = `menu_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      localStorage.setItem('menuId', savedMenuId);
+    }
+    return savedMenuId;
+  });
+
+  const saveMenuData = () => {
+    const menuData = {
+      restaurantName,
+      items: menuItems,
+      lastUpdated: new Date().toISOString()
+    };
+    localStorage.setItem(`menu_data_${menuId}`, JSON.stringify(menuData));
+  };
 
   const generateQRCode = async () => {
     try {
-      const menuUrl = `${window.location.origin}/menu?data=${encodeURIComponent(JSON.stringify({
-        restaurantName,
-        items: menuItems
-      }))}`;
+      // Save current menu data to localStorage
+      saveMenuData();
+      
+      // Generate QR code with fixed menu ID
+      const menuUrl = `${window.location.origin}/menu?id=${menuId}`;
       
       const qrDataUrl = await QRCode.toDataURL(menuUrl, {
         width: 256,
@@ -37,20 +56,16 @@ const QRCodeGenerator = ({ menuItems }: QRCodeGeneratorProps) => {
     }
   };
 
-  const downloadQRCode = () => {
-    if (qrCodeUrl) {
-      const link = document.createElement('a');
-      link.download = `${restaurantName.replace(/\s+/g, '_')}_menu_qr.png`;
-      link.href = qrCodeUrl;
-      link.click();
-    }
-  };
+  useEffect(() => {
+    // Save menu data whenever it changes
+    saveMenuData();
+  }, [menuItems, restaurantName, menuId]);
 
   useEffect(() => {
     if (menuItems.length > 0) {
       generateQRCode();
     }
-  }, [restaurantName, menuItems]);
+  }, [restaurantName, menuId]);
 
   return (
     <div className="space-y-6">
@@ -73,6 +88,19 @@ const QRCodeGenerator = ({ menuItems }: QRCodeGeneratorProps) => {
               placeholder="Enter your restaurant name"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              Menu ID (Fixed)
+            </label>
+            <Input
+              value={menuId}
+              readOnly
+              className="bg-gray-600/20 border-gray-500/20 text-gray-300"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              This ID keeps your QR code stable while you update your menu
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -91,7 +119,7 @@ const QRCodeGenerator = ({ menuItems }: QRCodeGeneratorProps) => {
                   Scan this QR code to view your menu
                 </p>
                 <p className="text-gray-400 text-xs">
-                  Menu items: {menuItems.length}
+                  Menu items: {menuItems.length} • Updates automatically
                 </p>
               </div>
               <Button
@@ -117,6 +145,15 @@ const QRCodeGenerator = ({ menuItems }: QRCodeGeneratorProps) => {
       )}
     </div>
   );
+
+  function downloadQRCode() {
+    if (qrCodeUrl) {
+      const link = document.createElement('a');
+      link.download = `${restaurantName.replace(/\s+/g, '_')}_menu_qr.png`;
+      link.href = qrCodeUrl;
+      link.click();
+    }
+  }
 };
 
 export default QRCodeGenerator;
